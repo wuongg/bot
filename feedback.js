@@ -105,12 +105,27 @@ function registerFeedbackChannel(channel) {
   console.log(`Kênh feedback: ${channel.name} (${channel.id})`);
 }
 
-function registerFeedbackThread(thread) {
-  const rule = findThreadRule(thread.name);
+async function registerFeedbackThread(thread) {
+  if (!feedbackChannelIds.has(thread.parentId)) {
+    return;
+  }
+
+  let parentName = thread.parent?.name;
+
+  if (!parentName && thread.parentId) {
+    const parent = await thread.fetchParent().catch(() => null);
+    parentName = parent?.name;
+  }
+
+  const rule =
+    (parentName && findThreadRule(parentName)) || findThreadRule(thread.name);
 
   if (rule) {
     feedbackThreadIds.add(thread.id);
-    console.log(`Thread feedback: ${thread.name} → quy tắc "${rule.key}"`);
+    console.log(
+      `Thread feedback: ${thread.name} → quy tắc "${rule.key}"` +
+        (parentName ? ` (kênh: ${parentName})` : "")
+    );
   }
 }
 
@@ -123,19 +138,37 @@ function isFeedbackMessage(message) {
     return false;
   }
 
-  return !!findThreadRule(message.channel.name);
+  return !!getThreadRule(message);
 }
 
 function getThreadRule(message) {
-  if (!message.channel.isThread()) {
-    return findThreadRule(message.channel.name);
+  const channel = message.channel;
+
+  if (!channel.isThread()) {
+    return findThreadRule(channel.name);
   }
 
-  return findThreadRule(message.channel.name);
+  const parentName = channel.parent?.name;
+
+  if (parentName) {
+    const ruleFromParent = findThreadRule(parentName);
+
+    if (ruleFromParent) {
+      return ruleFromParent;
+    }
+  }
+
+  return findThreadRule(channel.name);
 }
 
 function getFeedbackChannelName(message) {
   if (message.channel.isThread()) {
+    const parentName = message.channel.parent?.name;
+
+    if (parentName) {
+      return `${parentName} / ${message.channel.name}`;
+    }
+
     return message.channel.name;
   }
 
@@ -157,7 +190,7 @@ async function joinFeedbackThreads(client) {
     if (active) {
       for (const thread of active.threads.values()) {
         await thread.join().catch(() => {});
-        registerFeedbackThread(thread);
+        await registerFeedbackThread(thread);
       }
     }
   }
