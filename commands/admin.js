@@ -3,16 +3,33 @@ const {
   PermissionFlagsBits
 } = require("discord.js");
 const { isAdmin } = require("../lib/admin");
-const { resetUser, setUserXp, getUserXp } = require("../xp");
+const { resetUser, setUserXp, getUserXp, grantBonusXp } = require("../xp");
 const { syncMemberLevelRole } = require("../roles");
-const { getUserLogs } = require("../storage/xpLog");
+const { getUserLogs, appendXpLog } = require("../storage/xpLog");
 const { buildProfileEmbed } = require("../profile");
+const { buildLevelUpMessage } = require("../numberPickUi");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("admin")
     .setDescription("Quản trị bot (chỉ admin)")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addSubcommand((sub) =>
+      sub
+        .setName("grant")
+        .setDescription("Cộng thêm XP (bù feedback bị miss)")
+        .addUserOption((option) =>
+          option.setName("user").setDescription("User").setRequired(true)
+        )
+        .addIntegerOption((option) =>
+          option
+            .setName("amount")
+            .setDescription("Số XP cộng thêm")
+            .setRequired(true)
+            .setMinValue(1)
+            .setMaxValue(100)
+        )
+    )
     .addSubcommand((sub) =>
       sub
         .setName("reset")
@@ -64,6 +81,36 @@ module.exports = {
 
     const sub = interaction.options.getSubcommand();
     const target = interaction.options.getUser("user", true);
+
+    if (sub === "grant") {
+      const amount = interaction.options.getInteger("amount", true);
+      const result = grantBonusXp(target.id, amount);
+
+      appendXpLog({
+        userId: target.id,
+        amount,
+        level: getUserXp(target.id)?.level,
+        granted: { manual: amount },
+        leveledUp: result.leveledUp,
+        source: "admin_grant"
+      });
+
+      if (interaction.guild) {
+        await syncMemberLevelRole(interaction.guild, target.id, getUserXp(target.id)?.level ?? 0);
+      }
+
+      if (result.leveledUp) {
+        const levelUp = buildLevelUpMessage(target.id, getUserXp(target.id).level);
+        await interaction.channel?.send(levelUp).catch(() => {});
+      }
+
+      const user = getUserXp(target.id);
+
+      return interaction.reply({
+        content: `✅ Đã cộng **+${amount} XP** cho **${target.username}** → **${user.xp} XP** (Lv.${user.level}).`,
+        ephemeral: true
+      });
+    }
 
     if (sub === "reset") {
       resetUser(target.id);
