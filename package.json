@@ -1,0 +1,24 @@
+{
+  "name": "feedback-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "stop": "node scripts/stop.js",
+    "prestart": "node scripts/stop.js",
+    "start": "node index.js",
+    "backup": "node scripts/backup.js",
+    "migrate:sqlite": "node scripts/migrate-json-to-sqlite.js",
+    "test": "node tests/test-antispam.js && node tests/test-text-similarity.js && node tests/test-content-quality.js && node tests/test-mention-guard.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "discord.js": "^14.26.4",
+    "dotenv": "^17.4.2",
+    "pg": "^8.22.0"
+  }
+}

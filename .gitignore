@@ -1,0 +1,6 @@
+node_modules/
+.env
+data/
+xpData.json
+pickedNumbers.json
+.bot.lock
