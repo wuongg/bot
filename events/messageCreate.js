@@ -4,8 +4,8 @@ const { processFeedbackXp } = require("../feedbackXpPipeline");
 const { syncMemberLevelRole } = require("../roles");
 const { buildMentionReply, shouldReplyToMention } = require("../mentionReply");
 const {
-  isFeedbackMessage,
-  getThreadRule,
+  isFeedbackThreadMessage,
+  resolveThreadRule,
   getFeedbackChannelName
 } = require("../feedback");
 const log = require("../lib/logger");
@@ -34,23 +34,29 @@ function registerMessageCreate(client) {
       return;
     }
 
-    if (!isFeedbackMessage(message)) {
+    if (!isFeedbackThreadMessage(message)) {
       return;
     }
 
+    await message.channel.join().catch(() => {});
+
     await runWithXpLock(message.author.id, async () => {
       const threadName = getFeedbackChannelName(message);
-      const rule = getThreadRule(message);
+      const rule = await resolveThreadRule(message);
 
       if (!rule) {
-        log.debug("Skip XP: no rule", { thread: threadName });
+        log.warn("Skip XP: no rule", { thread: threadName, parentId: message.channel.parentId });
         return;
       }
 
       const check = rule.validate(message);
 
       if (!check.ok) {
-        log.debug("Skip XP: validation", { user: message.author.tag, reason: check.reason });
+        log.info("Skip XP: validation", {
+          user: message.author.tag,
+          thread: threadName,
+          reason: check.reason
+        });
         return;
       }
 

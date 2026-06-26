@@ -19,22 +19,36 @@ const THREAD_RULES = [
     name: "Feedback về lỗi sản phẩm",
     key: "bug",
     validate(message) {
-      if (!hasImageOrVideo(message)) {
-        return {
-          ok: false,
-          reason: "Thread lỗi: cần gửi kèm ảnh hoặc video lỗi."
-        };
-      }
-
       const text = getCleanContent(message);
-      if (text.length < 10) {
-        return {
-          ok: false,
-          reason: "Thread lỗi: cần mô tả luồng đi dẫn đến lỗi (ít nhất 10 ký tự)."
-        };
+      const isStarterPost =
+        message.channel.isThread() && message.id === message.channel.id;
+
+      if (isStarterPost) {
+        if (!hasImageOrVideo(message)) {
+          return {
+            ok: false,
+            reason: "Thread lỗi: bài post cần gửi kèm ảnh hoặc video lỗi."
+          };
+        }
+
+        if (text.length < 10) {
+          return {
+            ok: false,
+            reason: "Thread lỗi: cần mô tả luồng đi dẫn đến lỗi (ít nhất 10 ký tự)."
+          };
+        }
+
+        return { ok: true, xp: 10 };
       }
 
-      return { ok: true, xp: 10 };
+      if (text.length >= 5) {
+        return { ok: true, xp: 10 };
+      }
+
+      return {
+        ok: false,
+        reason: "Trả lời trong thread lỗi: cần ít nhất 5 ký tự."
+      };
     }
   },
   {
@@ -129,16 +143,43 @@ async function registerFeedbackThread(thread) {
   }
 }
 
+function isFeedbackThreadMessage(message) {
+  return (
+    message.channel.isThread() &&
+    message.channel.parentId &&
+    feedbackChannelIds.has(message.channel.parentId)
+  );
+}
+
 function isFeedbackMessage(message) {
-  if (!message.channel.isThread()) {
-    return false;
+  return isFeedbackThreadMessage(message);
+}
+
+async function resolveThreadRule(message) {
+  const channel = message.channel;
+
+  if (!channel.isThread()) {
+    return findThreadRule(channel.name);
   }
 
-  if (!feedbackChannelIds.has(message.channel.parentId)) {
-    return false;
+  let parentName = channel.parent?.name;
+
+  if (!parentName && channel.parentId) {
+    const parent = await channel.client.channels
+      .fetch(channel.parentId)
+      .catch(() => null);
+    parentName = parent?.name;
   }
 
-  return !!getThreadRule(message);
+  if (parentName) {
+    const ruleFromParent = findThreadRule(parentName);
+
+    if (ruleFromParent) {
+      return ruleFromParent;
+    }
+  }
+
+  return findThreadRule(channel.name);
 }
 
 function getThreadRule(message) {
@@ -193,6 +234,14 @@ async function joinFeedbackThreads(client) {
         await registerFeedbackThread(thread);
       }
     }
+
+    const archived = await channel.threads.fetchArchived().catch(() => null);
+    if (archived) {
+      for (const thread of archived.threads.values()) {
+        await thread.join().catch(() => {});
+        await registerFeedbackThread(thread);
+      }
+    }
   }
 }
 
@@ -202,7 +251,9 @@ module.exports = {
   registerFeedbackChannel,
   registerFeedbackThread,
   isFeedbackMessage,
+  isFeedbackThreadMessage,
   getThreadRule,
+  resolveThreadRule,
   getFeedbackChannelName,
   joinFeedbackThreads,
   feedbackChannelIds
