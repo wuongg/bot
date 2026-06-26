@@ -1,18 +1,13 @@
+const { getCleanContent } = require("./antispam");
+const { hasMessageImage, hasMessageImageOrVideo } = require("./lib/messageMedia");
+
 function hasImage(message) {
-  return message.attachments.some((file) => {
-    const type = file.contentType ?? "";
-    return type.startsWith("image/");
-  });
+  return hasMessageImage(message);
 }
 
 function hasImageOrVideo(message) {
-  return message.attachments.some((file) => {
-    const type = file.contentType ?? "";
-    return type.startsWith("image/") || type.startsWith("video/");
-  });
+  return hasMessageImageOrVideo(message);
 }
-
-const { getCleanContent } = require("./antispam");
 
 const THREAD_RULES = [
   {

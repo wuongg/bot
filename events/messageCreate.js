@@ -55,7 +55,9 @@ function registerMessageCreate(client) {
         log.info("Skip XP: validation", {
           user: message.author.tag,
           thread: threadName,
-          reason: check.reason
+          reason: check.reason,
+          attachments: message.attachments.size,
+          embeds: message.embeds?.length ?? 0
         });
         return;
       }
