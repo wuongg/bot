@@ -60,17 +60,27 @@ function registerMessageCreate(client) {
         return;
       }
 
+      const claimed = await message.react("⭐").then(() => true).catch(() => false);
+
+      if (!claimed) {
+        log.info("XP skip: already handled", { messageId: message.id });
+        return;
+      }
+
       const result = await processFeedbackXp(message, rule, check);
 
       if (!result.ok) {
         log.info("XP blocked", { user: message.author.tag, reason: result.reason });
+        await message.reactions.cache
+          .find((reaction) => reaction.emoji.name === "⭐")
+          ?.users.remove(message.client.user.id)
+          .catch(() => {});
         await message.reply(buildSpamReply(result.reason)).catch(() => {});
         return;
       }
 
       await syncMemberLevelRole(message.guild, message.author.id, result.level);
       await message.reply(result.reply).catch(() => {});
-      await message.react("⭐").catch(() => {});
     });
   });
 }

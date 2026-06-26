@@ -55,6 +55,12 @@ function validateConfig() {
       "⚠️  MENTION_AI=true nhưng thiếu OPENROUTER_API_KEY — @bot dùng rule thường."
     );
   }
+
+  if (process.env.RENDER !== "true") {
+    console.warn(
+      "⚠️  Nếu bot cũng chạy trên Render: tắt npm start local — tránh trùng phản hồi."
+    );
+  }
 }
 
 module.exports = { validateConfig };
