@@ -16,6 +16,9 @@ log.info("Storage ready", {
 
 setupLockHandlers();
 
+const { startHealthServer } = require("./lib/healthServer");
+startHealthServer();
+
 const { Client, GatewayIntentBits } = require("discord.js");
 const { loadCommands } = require("./bot/commands");
 const { registerEvents } = require("./events");
